@@ -45,6 +45,14 @@ class CityResult {
   String get key =>
       '${latitude.toStringAsFixed(2)},${longitude.toStringAsFixed(2)}';
 
+  // Two results for the same place are equal, so they can be used as
+  // provider family arguments and compared in lists.
+  @override
+  bool operator ==(Object other) => other is CityResult && other.key == key;
+
+  @override
+  int get hashCode => key.hashCode;
+
   /// "Region, Country" line shown under the city name.
   String get subtitle => [admin1, country]
       .whereType<String>()

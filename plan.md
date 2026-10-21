@@ -54,16 +54,16 @@ City Search --(pick result)--> Home (pop with selected city)
 
 | Group (WMO codes) | Day | Night |
 |-------------------|-----|-------|
-| Clear (0) | `#4FACFE` to `#00C6FB` | `#0F2027` to `#2C5364` |
-| Partly cloudy (1, 2) | `#6DA7E8` to `#A8C8F0` | `#1B2A49` to `#3A4A6B` |
-| Overcast (3) | `#8E9EAB` to `#B8C4CE` | `#232B33` to `#3C4650` |
-| Fog (45, 48) | `#BDC3C7` to `#DCE1E4` | `#2F3640` to `#4A525C` |
-| Drizzle (51-57) | `#7F9DB5` to `#A9BFD0` | `#1F2D3A` to `#3A4B5A` |
+| Clear (0) | `#2F80ED` to `#56CCF2` | `#0F2027` to `#2C5364` |
+| Partly cloudy (1, 2) | `#5B8FD9` to `#8FB6E8` | `#1B2A49` to `#3A4A6B` |
+| Overcast (3) | `#7B8A97` to `#A3B0BA` | `#232B33` to `#3C4650` |
+| Fog (45, 48) | `#AEB8C0` to `#D3DADF` | `#2F3640` to `#4A525C` |
+| Drizzle (51-57) | `#6C8DA6` to `#9BB3C6` | `#1F2D3A` to `#3A4B5A` |
 | Rain (61-67, 80-82) | `#4B6C8C` to `#7A98B3` | `#141E30` to `#243B55` |
-| Snow (71-77, 85, 86) | `#CFE3F1` to `#EAF2F8` | `#2B3A4F` to `#4E6580` |
+| Snow (71-77, 85, 86) | `#9CB8CE` to `#C9DAE8` | `#2B3A4F` to `#4E6580` |
 | Thunderstorm (95, 96, 99) | `#3A3F58` to `#5C5F7A` | `#0B0C1A` to `#262A44` |
 
-Hex values are starting points; tune on device for contrast.
+Hex values match `weather_gradients.dart`. Text colour switches between white and dark automatically (luminance of the gradient midpoint) so it stays readable; tune on device if any state looks off.
 
 ### Typography (Google Fonts: Inter)
 
@@ -350,10 +350,7 @@ Sample response shape:
 
 ## 12. Out of scope / Parking Lot
 
-- GPS / current location
-- Temperature chart
-- Air quality
-- Rain alerts
+- Background rain notifications (an in-app rain banner already exists)
 - Home screen widgets
 - Multi-language
 - iOS release
@@ -367,6 +364,25 @@ Sample response shape:
 
 - **Search suggestions:** with an empty search box, City Search shows a "Popular" list (hand-picked well-known cities; Open-Meteo has no popularity data) and the user's "Saved" list. The search hint says "city or country".
 - **Saved places:** bookmark icon on Home and on every search row saves/unsaves a place (persisted in `shared_preferences`). Saved places appear at the top of City Search; tap one to open it.
+
+---
+
+## Added after the first full build (round 2)
+
+| Feature | Notes |
+|---------|-------|
+| Rain chance | Hourly (% under each hour), daily (% per row), "Chance of rain" detail tile; uses `precipitation_probability` / `precipitation_probability_max` |
+| In-app rain alert | Banner when rain chance is 50%+ in the next 4 hours (no background notifications) |
+| Use my location | `geolocator`; needs Android location permissions in `AndroidManifest.xml` |
+| Offline cache | Last successful forecast saved per city (10 newest kept); shown with a "saved data" banner and Retry if an update fails |
+| Local time + last updated | City's local time (from `utc_offset_seconds`) and download time under the header |
+| Saved cities with live temps | Saved list in City Search shows each city's current temperature and icon |
+| Temperature chart | 24-hour line chart (`fl_chart`), follows the °C/°F setting |
+| Wind direction | "From NE" on the Wind tile (`wind_direction_10m`) |
+| Air quality | US AQI tile from the separate Open-Meteo air-quality API; shows "—" if unavailable |
+| Unit tests | `test/weather_logic_test.dart` (conversion, helpers, JSON parsing, city equality) |
+
+**Still not built (need native Android work):** home screen widget, background rain notifications.
 
 ---
 

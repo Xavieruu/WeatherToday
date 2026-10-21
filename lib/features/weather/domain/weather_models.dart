@@ -12,6 +12,7 @@ class CurrentWeather {
     required this.isDay,
     required this.humidity,
     required this.windSpeed,
+    required this.windDirection,
     required this.pressure,
     required this.time,
   });
@@ -22,6 +23,7 @@ class CurrentWeather {
   final bool isDay; // current.is_day
   final int humidity; // current.relative_humidity_2m (%)
   final double windSpeed; // current.wind_speed_10m (km/h)
+  final int? windDirection; // current.wind_direction_10m (degrees)
   final double pressure; // current.pressure_msl (hPa)
   final DateTime time; // current.time
 
@@ -33,6 +35,7 @@ class CurrentWeather {
       isDay: _toInt(json['is_day']) == 1,
       humidity: _toInt(json['relative_humidity_2m']),
       windSpeed: _toDouble(json['wind_speed_10m']),
+      windDirection: _toIntOrNull(json['wind_direction_10m']),
       pressure: _toDouble(json['pressure_msl']),
       time: DateTime.parse(json['time'] as String),
     );
@@ -45,12 +48,14 @@ class HourlyItem {
     required this.temperature,
     required this.weatherCode,
     required this.isDay,
+    this.precipitationProbability,
   });
 
   final DateTime time; // hourly.time[i]
   final double temperature; // hourly.temperature_2m[i]
   final int weatherCode; // hourly.weather_code[i]
   final bool isDay; // hourly.is_day[i]
+  final int? precipitationProbability; // hourly.precipitation_probability[i]
 }
 
 class DailyItem {
@@ -61,6 +66,7 @@ class DailyItem {
     required this.tempMin,
     required this.sunrise,
     required this.sunset,
+    this.precipitationProbabilityMax,
   });
 
   final DateTime date; // daily.time[i]
@@ -69,6 +75,7 @@ class DailyItem {
   final double tempMin; // daily.temperature_2m_min[i]
   final DateTime? sunrise; // daily.sunrise[i] (null in polar day/night)
   final DateTime? sunset; // daily.sunset[i] (null in polar day/night)
+  final int? precipitationProbabilityMax; // daily.precipitation_probability_max[i]
 }
 
 class WeatherData {
@@ -78,6 +85,9 @@ class WeatherData {
     required this.daily,
     required this.uvIndex,
     required this.visibility,
+    required this.utcOffsetSeconds,
+    required this.fetchedAt,
+    this.isStale = false,
   });
 
   final CurrentWeather current;
@@ -94,7 +104,25 @@ class WeatherData {
   /// hourly.visibility (metres) at the current hour; null if unavailable.
   final double? visibility;
 
-  factory WeatherData.fromJson(Map<String, dynamic> json) {
+  /// Top-level `utc_offset_seconds` (city's offset from UTC).
+  final int utcOffsetSeconds;
+
+  /// When this data was downloaded (device clock).
+  final DateTime fetchedAt;
+
+  /// True when this is saved data shown because a refresh failed.
+  final bool isStale;
+
+  /// Current wall-clock time in the city. The returned DateTime is flagged
+  /// UTC only so its fields hold the city's local clock values.
+  DateTime get cityNow =>
+      DateTime.now().toUtc().add(Duration(seconds: utcOffsetSeconds));
+
+  factory WeatherData.fromJson(
+    Map<String, dynamic> json, {
+    DateTime? fetchedAt,
+    bool isStale = false,
+  }) {
     final current = CurrentWeather.fromJson(_asMap(json['current']));
 
     // Hourly arrays.
@@ -105,6 +133,9 @@ class WeatherData {
     final isDays = _asList(h['is_day']);
     final uvs = _asList(h['uv_index']);
     final vis = _asList(h['visibility']);
+    final rain = h['precipitation_probability'] is List
+        ? h['precipitation_probability'] as List
+        : const <dynamic>[];
     final n = times.length;
     if (n == 0 ||
         temps.length < n ||
@@ -135,6 +166,8 @@ class WeatherData {
           temperature: _toDouble(temps[i]),
           weatherCode: _toInt(codes[i]),
           isDay: _toInt(isDays[i]) == 1,
+          precipitationProbability:
+              i < rain.length ? _toIntOrNull(rain[i]) : null,
         ),
     ];
 
@@ -146,6 +179,9 @@ class WeatherData {
     final dMin = _asList(d['temperature_2m_min']);
     final dRise = _asList(d['sunrise']);
     final dSet = _asList(d['sunset']);
+    final dRain = d['precipitation_probability_max'] is List
+        ? d['precipitation_probability_max'] as List
+        : const <dynamic>[];
     final dn = dTimes.length;
     if (dn == 0 ||
         dCodes.length < dn ||
@@ -165,6 +201,8 @@ class WeatherData {
           tempMin: _toDouble(dMin[i]),
           sunrise: _parseOrNull(dRise[i]),
           sunset: _parseOrNull(dSet[i]),
+          precipitationProbabilityMax:
+              i < dRain.length ? _toIntOrNull(dRain[i]) : null,
         ),
     ];
 
@@ -174,6 +212,9 @@ class WeatherData {
       daily: daily,
       uvIndex: _toDoubleOrZero(uvs[start]),
       visibility: vis[start] is num ? (vis[start] as num).toDouble() : null,
+      utcOffsetSeconds: _toIntOrNull(json['utc_offset_seconds']) ?? 0,
+      fetchedAt: fetchedAt ?? DateTime.now(),
+      isStale: isStale,
     );
   }
 }
@@ -182,6 +223,7 @@ class WeatherData {
 // malformed data.
 double _toDouble(dynamic v) => (v as num).toDouble();
 int _toInt(dynamic v) => (v as num).round();
+int? _toIntOrNull(dynamic v) => v is num ? v.round() : null;
 double _toDoubleOrZero(dynamic v) => v is num ? v.toDouble() : 0;
 DateTime? _parseOrNull(dynamic v) => v is String ? DateTime.tryParse(v) : null;
 

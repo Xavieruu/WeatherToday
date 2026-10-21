@@ -50,7 +50,7 @@ class WeatherGradients {
   /// Text/icon color that stays readable on the given gradient.
   static Color onColor(List<Color> colors) {
     final mid = Color.lerp(colors.first, colors.last, 0.5)!;
-    return mid.computeLuminance() > 0.45
+    return mid.computeLuminance() > 0.18
         ? const Color(0xFF14212B)
         : Colors.white;
   }

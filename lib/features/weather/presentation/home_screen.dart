@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_durations.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -21,6 +22,8 @@ import 'widgets/daily_forecast_card.dart';
 import 'widgets/detail_cards.dart';
 import 'widgets/error_view.dart';
 import 'widgets/hourly_strip.dart';
+import 'widgets/info_banners.dart';
+import 'widgets/temperature_chart.dart';
 import 'widgets/weather_skeleton.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -31,6 +34,10 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  // Last gradient shown, kept while the next city loads so the background
+  // doesn't flash to the fallback blue.
+  List<Color>? _lastColors;
+
   @override
   void initState() {
     super.initState();
@@ -68,10 +75,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final data = weather.isLoading ? null : weather.safeValue;
 
     // Background gradient follows condition + day/night.
-    var colors = WeatherGradients.fallback;
+    var colors = _lastColors ?? WeatherGradients.fallback;
     if (data != null) {
       final info = weatherInfoFor(data.current.weatherCode);
       colors = WeatherGradients.colors(info.group, data.current.isDay);
+      _lastColors = colors;
     }
     final onColor = WeatherGradients.onColor(colors);
 
@@ -110,11 +118,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? SystemUiOverlayStyle.light
                   : SystemUiOverlayStyle.dark,
               titleSpacing: AppSpacing.screenPadding,
-              title: Text(
-                city?.name ?? 'Weather',
-                style: text.headlineMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              title: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  city?.name ?? 'WeatherToday',
+                  style: text.headlineMedium,
+                  maxLines: 1,
+                ),
               ),
               actions: [
                 if (city != null)
@@ -160,6 +171,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (data != null) {
       return _Content(
         key: const ValueKey('content'),
+        city: city,
         data: data,
         onRefresh: _onRefresh,
       );
@@ -179,31 +191,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _Content extends StatelessWidget {
-  const _Content({super.key, required this.data, required this.onRefresh});
+  const _Content({
+    super.key,
+    required this.city,
+    required this.data,
+    required this.onRefresh,
+  });
 
+  final CityResult city;
   final WeatherData data;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final rainMessage = rainAlertMessage(data.hourly);
+    final localTime = DateFormat('EEE, h:mm a').format(data.cityNow);
+    final updated = DateFormat('h:mm a').format(data.fetchedAt.toLocal());
+
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           AppSpacing.screenPadding,
           AppSpacing.sm,
           AppSpacing.screenPadding,
-          AppSpacing.xl,
+          AppSpacing.xl + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
           CurrentWeatherHeader(current: data.current, today: data.daily.first),
+          Center(
+            child: Text(
+              'Local time $localTime  ·  Updated $updated',
+              style: text.labelMedium,
+              textAlign: TextAlign.center,
+            ),
+          ),
           const SizedBox(height: AppSpacing.lg),
+          if (data.isStale) ...[
+            StaleBanner(fetchedAt: data.fetchedAt),
+            const SizedBox(height: AppSpacing.cardGap),
+          ],
+          if (rainMessage != null) ...[
+            RainAlertBanner(message: rainMessage),
+            const SizedBox(height: AppSpacing.cardGap),
+          ],
           HourlyStrip(items: data.hourly),
+          const SizedBox(height: AppSpacing.cardGap),
+          TemperatureChart(items: data.hourly),
           const SizedBox(height: AppSpacing.cardGap),
           DailyForecastCard(items: data.daily),
           const SizedBox(height: AppSpacing.cardGap),
-          DetailCards(data: data),
+          DetailCards(data: data, city: city),
         ],
       ),
     );

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/utils/units.dart';
+import '../../settings/providers/settings_providers.dart';
+import '../../weather/domain/weather_code_mapper.dart';
 import '../../weather/providers/weather_providers.dart';
+import '../data/location_service.dart';
 import '../domain/city_result.dart';
 import '../domain/popular_cities.dart';
 import '../providers/saved_cities_provider.dart';
@@ -17,6 +21,29 @@ class CitySearchScreen extends ConsumerStatefulWidget {
 
 class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
   final _controller = TextEditingController();
+  bool _locating = false;
+
+  Future<void> _useMyLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final place = await ref.read(locationServiceProvider).current();
+      if (!mounted) return;
+      _pick(place);
+    } on LocationException catch (e) {
+      _showMessage(e.message);
+    } catch (_) {
+      _showMessage("Couldn't get your location.");
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -51,10 +78,25 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
           autofocus: true,
           textInputAction: TextInputAction.search,
           style: text.bodyLarge,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Search city or country',
             border: InputBorder.none,
+            suffixIcon: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _controller,
+              builder: (context, value, _) {
+                if (value.text.isEmpty) return const SizedBox.shrink();
+                return IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    _controller.clear();
+                    ref.read(citySearchProvider.notifier).onQueryChanged('');
+                  },
+                );
+              },
+            ),
           ),
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
           onChanged: ref.read(citySearchProvider.notifier).onQueryChanged,
         ),
       ),
@@ -85,11 +127,16 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
   Widget _cityTile(CityResult city, {required bool saved}) {
     return ListTile(
       leading: const Icon(Icons.place_outlined),
-      title: Text(city.name),
-      subtitle: city.subtitle.isEmpty ? null : Text(city.subtitle),
+      title: Text(city.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: city.subtitle.isEmpty
+          ? null
+          : Text(city.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: IconButton(
         tooltip: saved ? 'Remove from saved' : 'Save city',
-        icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+        icon: Icon(
+          saved ? Icons.bookmark : Icons.bookmark_border,
+          color: saved ? Theme.of(context).colorScheme.primary : null,
+        ),
         onPressed: () => ref.read(savedCitiesProvider.notifier).toggle(city),
       ),
       onTap: () => _pick(city),
@@ -116,7 +163,19 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
     final text = Theme.of(context).textTheme;
 
     return ListView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        ListTile(
+          leading: _locating
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.my_location),
+          title: const Text('Use my location'),
+          onTap: _useMyLocation,
+        ),
         _sectionHeader('Saved'),
         if (saved.isEmpty)
           Padding(
@@ -130,7 +189,13 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
             ),
           )
         else
-          for (final city in saved) _cityTile(city, saved: true),
+          for (final city in saved)
+            _SavedCityTile(
+              city: city,
+              onTap: () => _pick(city),
+              onUnsave: () =>
+                  ref.read(savedCitiesProvider.notifier).toggle(city),
+            ),
         _sectionHeader('Popular'),
         for (final city in popularCities)
           _cityTile(city, saved: savedKeys.contains(city.key)),
@@ -161,6 +226,7 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
         if (state.isLoading) const LinearProgressIndicator(minHeight: 2),
         Expanded(
           child: ListView.builder(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             itemCount: state.results.length,
             itemBuilder: (context, index) {
               final city = state.results[index];
@@ -169,6 +235,68 @@ class _CitySearchScreenState extends ConsumerState<CitySearchScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A saved city with its current temperature and condition.
+class _SavedCityTile extends ConsumerWidget {
+  const _SavedCityTile({
+    required this.city,
+    required this.onTap,
+    required this.onUnsave,
+  });
+
+  final CityResult city;
+  final VoidCallback onTap;
+  final VoidCallback onUnsave;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weather = ref.watch(cityWeatherProvider(city));
+    final unit = ref.watch(temperatureUnitProvider);
+    final text = Theme.of(context).textTheme;
+
+    final Widget live = weather.when(
+      data: (data) {
+        if (data == null) return Text('—', style: text.titleMedium);
+        final info = weatherInfoFor(data.current.weatherCode);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(info.icon(data.current.isDay), size: 20),
+            const SizedBox(width: AppSpacing.xs),
+            Text(unit.format(data.current.temperature),
+                style: text.titleMedium),
+          ],
+        );
+      },
+      loading: () => const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+      error: (e, s) => Text('—', style: text.titleMedium),
+    );
+
+    return ListTile(
+      leading: const Icon(Icons.bookmark),
+      title: Text(city.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: city.subtitle.isEmpty
+          ? null
+          : Text(city.subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          live,
+          IconButton(
+            tooltip: 'Remove from saved',
+            icon: const Icon(Icons.close),
+            onPressed: onUnsave,
+          ),
+        ],
+      ),
+      onTap: onTap,
     );
   }
 }

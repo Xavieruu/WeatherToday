@@ -21,7 +21,7 @@ class WeatherSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = _box(height: 110, radius: AppSpacing.cardRadius);
+    final card = _box(height: 150, radius: AppSpacing.cardRadius);
     final tile = Expanded(
       child: _box(height: 96, radius: AppSpacing.cardRadius),
     );
@@ -47,7 +47,9 @@ class WeatherSkeleton extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           card,
           const SizedBox(height: AppSpacing.cardGap),
-          _box(height: 300, radius: AppSpacing.cardRadius),
+          _box(height: 250, radius: AppSpacing.cardRadius),
+          const SizedBox(height: AppSpacing.cardGap),
+          _box(height: 450, radius: AppSpacing.cardRadius),
           const SizedBox(height: AppSpacing.cardGap),
           Row(children: [
             tile,

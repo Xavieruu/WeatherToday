@@ -1,29 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/utils/async_value_ext.dart';
+import '../../../../core/utils/format_utils.dart';
+import '../../../search/domain/city_result.dart';
 import '../../domain/weather_models.dart';
+import '../../providers/weather_providers.dart';
 import 'glass_card.dart';
 
-/// Grid of detail cards: humidity, wind, UV, pressure, visibility, sun times.
-class DetailCards extends StatelessWidget {
-  const DetailCards({super.key, required this.data});
+/// Grid of detail cards: humidity, wind, rain chance, UV, air quality,
+/// pressure, visibility, sunrise/sunset.
+class DetailCards extends ConsumerWidget {
+  const DetailCards({super.key, required this.data, required this.city});
 
   final WeatherData data;
-
-  static String _uvLabel(double uv) {
-    if (uv < 3) return 'Low';
-    if (uv < 6) return 'Moderate';
-    if (uv < 8) return 'High';
-    if (uv < 11) return 'Very high';
-    return 'Extreme';
-  }
+  final CityResult city;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = data.current;
     final today = data.daily.first;
     final timeFormat = DateFormat('h:mm a');
+    final air = ref.watch(airQualityProvider(city)).safeValue;
+    final rain = today.precipitationProbabilityMax;
+    final windFrom = c.windDirection;
 
     final tiles = <Widget>[
       _Tile(
@@ -35,12 +37,25 @@ class DetailCards extends StatelessWidget {
         icon: Icons.air,
         label: 'Wind',
         value: '${c.windSpeed.round()} km/h',
+        subtitle: windFrom == null ? null : 'From ${compassDirection(windFrom)}',
+      ),
+      _Tile(
+        icon: Icons.umbrella_outlined,
+        label: 'Rain chance',
+        value: rain == null ? '—' : '$rain%',
+        subtitle: 'Today',
       ),
       _Tile(
         icon: Icons.wb_sunny_outlined,
         label: 'UV index',
         value: data.uvIndex.toStringAsFixed(1),
-        subtitle: _uvLabel(data.uvIndex),
+        subtitle: uvLabel(data.uvIndex),
+      ),
+      _Tile(
+        icon: Icons.masks_outlined,
+        label: 'Air quality',
+        value: air == null ? '—' : '${air.usAqi}',
+        subtitle: air == null ? null : aqiLabel(air.usAqi),
       ),
       _Tile(
         icon: Icons.speed,
@@ -58,7 +73,9 @@ class DetailCards extends StatelessWidget {
         icon: Icons.wb_twilight,
         label: 'Sunrise',
         value: today.sunrise == null ? '—' : timeFormat.format(today.sunrise!),
-        subtitle: 'Sunset ${today.sunset == null ? '—' : timeFormat.format(today.sunset!)}',
+        subtitle: today.sunset == null
+            ? null
+            : 'Sunset ${timeFormat.format(today.sunset!)}',
       ),
     ];
 
@@ -102,26 +119,42 @@ class _Tile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(label, style: text.labelMedium),
+      blur: false,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 64),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: text.labelMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: text.titleMedium?.copyWith(fontSize: 24),
               ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(subtitle!, style: text.labelMedium),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(value, style: text.titleMedium?.copyWith(fontSize: 24)),
-          if (subtitle != null) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(subtitle!, style: text.labelMedium),
           ],
-        ],
+        ),
       ),
     );
   }

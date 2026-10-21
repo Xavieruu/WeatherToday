@@ -6,10 +6,14 @@ import '../../../core/storage/prefs_service.dart';
 import '../../search/domain/city_result.dart';
 import '../data/weather_api.dart';
 import '../data/weather_repository.dart';
+import '../domain/air_quality.dart';
 import '../domain/weather_models.dart';
 
 final weatherRepositoryProvider = Provider<WeatherRepository>((ref) {
-  return WeatherRepository(WeatherApi(ref.watch(dioProvider)));
+  return WeatherRepository(
+    WeatherApi(ref.watch(dioProvider)),
+    ref.watch(prefsServiceProvider),
+  );
 });
 
 /// The currently selected city. Loaded from (and saved to) local storage.
@@ -30,7 +34,8 @@ final selectedCityProvider =
 /// Forecast for the selected city as loading / data / error.
 ///
 /// State is managed by hand (instead of a FutureProvider) so a failed
-/// pull-to-refresh can keep the previous data on screen.
+/// refresh can keep the previous data on screen, and so saved data can be
+/// shown when the network fails.
 class WeatherNotifier extends Notifier<AsyncValue<WeatherData>> {
   int _generation = 0;
 
@@ -55,7 +60,7 @@ class WeatherNotifier extends Notifier<AsyncValue<WeatherData>> {
         keepDataOnError: true);
   }
 
-  /// Retry from the error view: back to loading, then refetch.
+  /// Retry from an error/stale view: back to loading, then refetch.
   Future<void> retry() async {
     final city = ref.read(selectedCityProvider);
     if (city == null) return;
@@ -77,22 +82,50 @@ class WeatherNotifier extends Notifier<AsyncValue<WeatherData>> {
       return null;
     } on ApiException catch (e, st) {
       if (generation != _generation) return null;
-      if (!(keepDataOnError && state.hasValue)) {
-        state = AsyncError(e, st);
-      }
+      _fail(city, repository, e, st, keepDataOnError);
       return e.message;
     } catch (_, st) {
       if (generation != _generation) return null;
       const fallback =
           ApiException(ApiErrorType.unknown, 'Something went wrong.');
-      if (!(keepDataOnError && state.hasValue)) {
-        state = AsyncError(fallback, st);
-      }
+      _fail(city, repository, fallback, st, keepDataOnError);
       return fallback.message;
     }
+  }
+
+  void _fail(
+    CityResult city,
+    WeatherRepository repository,
+    ApiException error,
+    StackTrace st,
+    bool keepDataOnError,
+  ) {
+    // A failed pull-to-refresh leaves whatever is on screen untouched.
+    if (keepDataOnError && state.hasValue) return;
+    // Otherwise fall back to saved data (marked stale) when there is some.
+    final saved = repository.cached(city);
+    state = saved != null ? AsyncData(saved) : AsyncError(error, st);
   }
 }
 
 final weatherProvider =
     NotifierProvider<WeatherNotifier, AsyncValue<WeatherData>>(
         WeatherNotifier.new);
+
+/// Forecast for any city (used for the temperatures in the Saved list).
+/// Returns null when the forecast can't be loaded.
+final cityWeatherProvider =
+    FutureProvider.autoDispose.family<WeatherData?, CityResult>(
+        (ref, city) async {
+  try {
+    return await ref.watch(weatherRepositoryProvider).fetchWeather(city);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Air quality for a city; null when unavailable.
+final airQualityProvider =
+    FutureProvider.autoDispose.family<AirQuality?, CityResult>((ref, city) {
+  return ref.watch(weatherRepositoryProvider).fetchAirQuality(city);
+});

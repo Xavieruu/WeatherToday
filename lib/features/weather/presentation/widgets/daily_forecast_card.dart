@@ -13,6 +13,12 @@ class DailyForecastCard extends StatelessWidget {
 
   final List<DailyItem> items;
 
+  static Widget? _rainText(DailyItem item, TextTheme text) {
+    final p = item.precipitationProbabilityMax;
+    if (p == null || p < 10) return null;
+    return Text('$p%', style: text.labelMedium);
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -38,27 +44,52 @@ class DailyForecastCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  // Chance of rain (hidden when under 10%).
+                  SizedBox(
+                    width: 52,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _rainText(items[i], text),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
                   Icon(
                     weatherInfoFor(items[i].weatherCode).icon(true),
                     size: 24,
                   ),
                   Expanded(
                     flex: 2,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Opacity(
-                          opacity: 0.7,
-                          child: TempText(items[i].tempMin,
-                              style: text.bodyLarge),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        TempText(
-                          items[i].tempMax,
-                          style: text.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Opacity(
+                            opacity: 0.85,
+                            child: SizedBox(
+                              width: 44,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: TempText(items[i].tempMin,
+                                    style: text.bodyLarge),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          SizedBox(
+                            width: 44,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: TempText(
+                                items[i].tempMax,
+                                style: text.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

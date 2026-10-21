@@ -98,6 +98,13 @@ class CitySearchNotifier extends Notifier<CitySearchState> {
             : "Couldn't search right now. Try again.",
         hasSearched: true,
       );
+    } catch (_) {
+      if (generation != _generation) return;
+      state = CitySearchState(
+        query: query,
+        error: "Couldn't search right now. Try again.",
+        hasSearched: true,
+      );
     }
   }
 }

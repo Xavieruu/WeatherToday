@@ -13,6 +13,12 @@ class HourlyStrip extends StatelessWidget {
 
   final List<HourlyItem> items;
 
+  static Widget? _rainLabel(HourlyItem item, TextTheme text) {
+    final p = item.precipitationProbability;
+    if (p == null || p < 10) return null;
+    return Text('$p%', style: text.labelMedium);
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -30,7 +36,7 @@ class HourlyStrip extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: Row(
               children: [
                 for (var i = 0; i < items.length; i++)
@@ -51,6 +57,12 @@ class HourlyStrip extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         TempText(items[i].temperature, style: text.bodyLarge),
+                        const SizedBox(height: AppSpacing.xs),
+                        // Rain chance; fixed height so every column lines up.
+                        SizedBox(
+                          height: MediaQuery.textScalerOf(context).scale(18),
+                          child: _rainLabel(items[i], text),
+                        ),
                       ],
                     ),
                   ),

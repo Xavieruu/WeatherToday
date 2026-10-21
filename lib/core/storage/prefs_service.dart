@@ -43,6 +43,32 @@ class PrefsService {
     await _prefs.setString(_lastCityKey, jsonEncode(city.toJson()));
   }
 
+  static const _savedCitiesKey = 'saved_cities';
+
+  List<CityResult> get savedCities {
+    final raw = _prefs.getString(_savedCitiesKey);
+    if (raw == null) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .whereType<Map<String, dynamic>>()
+            .map(CityResult.fromJson)
+            .toList();
+      }
+    } catch (_) {
+      // Corrupt data: start with an empty list.
+    }
+    return const [];
+  }
+
+  Future<void> setSavedCities(List<CityResult> cities) async {
+    await _prefs.setString(
+      _savedCitiesKey,
+      jsonEncode(cities.map((c) => c.toJson()).toList()),
+    );
+  }
+
   ThemeMode get themeMode {
     switch (_prefs.getString(_themeModeKey)) {
       case 'light':

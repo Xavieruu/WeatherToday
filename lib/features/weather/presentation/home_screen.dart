@@ -10,6 +10,7 @@ import '../../../core/utils/async_value_ext.dart';
 import '../../../core/utils/page_routes.dart';
 import '../../search/domain/city_result.dart';
 import '../../search/presentation/city_search_screen.dart';
+import '../../search/providers/saved_cities_provider.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../domain/weather_code_mapper.dart';
 import '../domain/weather_gradients.dart';
@@ -61,6 +62,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final city = ref.watch(selectedCityProvider);
     final weather = ref.watch(weatherProvider);
+    final saved = ref.watch(savedCitiesProvider);
+    final isSaved = city != null && saved.any((c) => c.key == city.key);
     // While a new city loads, show the skeleton rather than stale data.
     final data = weather.isLoading ? null : weather.safeValue;
 
@@ -108,12 +111,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   : SystemUiOverlayStyle.dark,
               titleSpacing: AppSpacing.screenPadding,
               title: Text(
-                city?.name ?? 'WeatherToday',
+                city?.name ?? 'Weather',
                 style: text.headlineMedium,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               actions: [
+                if (city != null)
+                  IconButton(
+                    tooltip: isSaved ? 'Remove from saved' : 'Save city',
+                    icon: Icon(
+                      isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    ),
+                    onPressed: () =>
+                        ref.read(savedCitiesProvider.notifier).toggle(city),
+                  ),
                 IconButton(
                   tooltip: 'Search city',
                   icon: const Icon(Icons.search),

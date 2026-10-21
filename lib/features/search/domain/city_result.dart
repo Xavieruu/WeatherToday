@@ -40,6 +40,11 @@ class CityResult {
         'timezone': timezone,
       };
 
+  /// Identity used to tell places apart (saved list, popular list, results).
+  /// Rounded coordinates, so the same place from different sources matches.
+  String get key =>
+      '${latitude.toStringAsFixed(2)},${longitude.toStringAsFixed(2)}';
+
   /// "Region, Country" line shown under the city name.
   String get subtitle => [admin1, country]
       .whereType<String>()

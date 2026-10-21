@@ -1,4 +1,4 @@
-# WeatherToday: Project Plan
+# Weather App: Project Plan
 
 ## 1. Overview and goals
 
@@ -312,14 +312,14 @@ Sample response shape:
 
 ## 10. Phased build order
 
-- [ ] **Phase 1: Setup + theme.** Create project, add dependencies, folder skeleton, Material 3 light/dark theme, Inter font, placeholder Home. *Runs on device: themed empty screen.*
-- [ ] **Phase 2: API layer + models.** Dio client, geocoding + forecast API classes, models, WMO mapper, repository, error mapping. *Runs on device: debug screen printing parsed data for a hardcoded city.*
-- [ ] **Phase 3: Home with current weather.** `selectedCityProvider`, `weatherProvider`, current weather header with loading/error/offline states. *Runs on device: real weather for a default city.*
-- [ ] **Phase 4: City search + persistence.** Search screen with debounce, results, empty state, save/load last city. *Runs on device: search, pick, relaunch remembers city.*
-- [ ] **Phase 5: Hourly + 7-day + detail cards.** Hourly strip, daily list, details grid. *Runs on device: full Home content.*
-- [ ] **Phase 6: Dynamic gradient + glass cards.** Gradient mapping, glass card widget, transitions. *Runs on device: background reacts to condition and day/night.*
-- [ ] **Phase 7: Settings.** Theme mode toggle, °C/°F toggle, persistence, apply units everywhere. *Runs on device: both toggles work and persist.*
-- [ ] **Phase 8: Pull-to-refresh, polish, and testing.** Refresh indicator, shimmer skeleton, animation tuning, full device checklist. *Runs on device: release-quality build for testing.*
+- [x] **Phase 1: Setup + theme.** Create project, add dependencies, folder skeleton, Material 3 light/dark theme, Inter font, placeholder Home. *Runs on device: themed empty screen.*
+- [x] **Phase 2: API layer + models.** Dio client, geocoding + forecast API classes, models, WMO mapper, repository, error mapping. *Runs on device: debug screen printing parsed data for a hardcoded city.*
+- [x] **Phase 3: Home with current weather.** `selectedCityProvider`, `weatherProvider`, current weather header with loading/error/offline states. *Runs on device: real weather for a default city.*
+- [x] **Phase 4: City search + persistence.** Search screen with debounce, results, empty state, save/load last city. *Runs on device: search, pick, relaunch remembers city.*
+- [x] **Phase 5: Hourly + 7-day + detail cards.** Hourly strip, daily list, details grid. *Runs on device: full Home content.*
+- [x] **Phase 6: Dynamic gradient + glass cards.** Gradient mapping, glass card widget, transitions. *Runs on device: background reacts to condition and day/night.*
+- [x] **Phase 7: Settings.** Theme mode toggle, °C/°F toggle, persistence, apply units everywhere. *Runs on device: both toggles work and persist.*
+- [x] **Phase 8: Pull-to-refresh, polish, and testing.** Refresh indicator, shimmer skeleton, animation tuning, full device checklist. *Runs on device: release-quality build for testing.*
 
 ---
 
@@ -351,7 +351,6 @@ Sample response shape:
 ## 12. Out of scope / Parking Lot
 
 - GPS / current location
-- Saved cities list
 - Temperature chart
 - Air quality
 - Rain alerts
@@ -361,6 +360,13 @@ Sample response shape:
 - Play Store publishing
 
 **Rule: Nothing from this list gets built until all phases above are complete and tested.**
+
+---
+
+## Added after Phase 8
+
+- **Search suggestions:** with an empty search box, City Search shows a "Popular" list (hand-picked well-known cities; Open-Meteo has no popularity data) and the user's "Saved" list. The search hint says "city or country".
+- **Saved places:** bookmark icon on Home and on every search row saves/unsaves a place (persisted in `shared_preferences`). Saved places appear at the top of City Search; tap one to open it.
 
 ---
 
